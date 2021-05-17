@@ -58,6 +58,11 @@ function lexer (code) {
 							type: 'number',
 							value: Number(t)
 						})
+					}else if(t === 'true' || t === 'false'){
+						map.push( {
+							type: 'boolean',
+							value: t === 'true'
+						})
 					}else if(t === '{' || t === '}'){
 						map.push( {
 							type: 'expression',
@@ -299,7 +304,7 @@ fn test(ok string): string {
 
 var whatever string = test("1");
 
-var lol boolean = "1";
+var lol boolean = true;
 
 
 return whatever;

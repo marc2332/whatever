@@ -11,6 +11,12 @@ function lexer (code) {
 						value: t
 					})
 					break;
+				case 'print':
+					map.push({
+						type: 'print',
+						value: t
+					})
+					break;
 
 				case 'fn':
 					map.push({
@@ -98,6 +104,19 @@ function transformTokensToArguments(tokens){
 	return res
 }
 
+function transformTokensToArgumentsWithoutInterface(tokens){
+	const res = []
+	for(let i = 0; i < tokens.length; i += 2){
+		const token = tokens[i]
+		res.push({
+			value: token.value
+		})
+	}
+	return res
+}
+
+
+
 
 function parser(tokens, currentScope) {
 	for(let i = 0; i < tokens.length; i++){
@@ -148,6 +167,13 @@ function parser(tokens, currentScope) {
 				currentScope.body.push({
 					type: 'return',
 					value: tokens[i+1]
+				})
+				break;
+			case 'print':
+				currentScope.body.push({
+					type: 'reference',
+					value: tokens[i].value,
+					arguments: transformTokensToArgumentsWithoutInterface(getAllTokensUntil(tokens.slice(i+2), 'group', 'closes'))
 				})
 				break;
 			case 'asignment':
@@ -224,23 +250,35 @@ const tokens = lexer(`
 
 
 fn test(): string {
-	return "hola";
+	print("hola" );
+	return "test";
 }
 
 var wow string = test();
 
+class hola {
+
+	var hello string = "hola";
+
+	fn constructor( test string, whatever boolean ) {
+
+	}
+}
+
 return wow;
+
+
+
+
+
 `)
 
-
-
-
+//console.log(tokens.flat())
 
 const ast = parser(tokens.flat(),{
 	body:[]
 })
 
+//console.log(JSON.stringify(ast,null,2))
 
-
-console.log(JSON.stringify(ast,null,2))
-
+export default ast;

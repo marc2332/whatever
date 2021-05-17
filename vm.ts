@@ -1,48 +1,9 @@
-const sample_abi = {
-    "body": [
-        {
-            "type": "function",
-            "name": "test",
-            "arguments": [],
-            "interface": "self",
-            "body": [
-                {
-                    "type": "return",
-                    "value": {
-                        "type": "string",
-                        "value": "\"hola\""
-                    }
-                }
-            ]
-        },
-        {
-            "type": "variable",
-            "value": {
-                "type": "reference",
-                "value": "test"
-            },
-            "name": "wow",
-            "interface": "string"
-        },
-        {
-            "type": "return",
-            "value": {
-                "type": "reference",
-                "value": "wow"
-            }
-        }
-    ]
-}
-
+import sample_abi from './index.js';
 
 class Stack {
     ops: any= [];
     push(op: any){
         this.ops.push(op)
-    }
-
-    pop(){
-        this.ops.pop()
     }
 
     executeFunctionByName(name: string){
@@ -86,6 +47,14 @@ class VM {
                             return this.runScope(action)
                         }
                     })
+
+                    break;
+                case 'reference':
+                    switch (action.value) {
+                        case 'print':
+                            console.log(...action.arguments.map((arg: any)=>arg.value))
+                            break;
+                    }
 
                     break;
                 case 'return':

@@ -1,9 +1,9 @@
 function lexer (code) {
 	const map = []
 	code.split(/;/).map((sep) => {
-		const splitted = sep.split(/[\s+:]|([(])/)
+		const splitted = sep.split(/[\s+:]|([()])/)
 		const tokens = splitted.filter(Boolean)
-		tokens.forEach(function (t) {
+		tokens.forEach(function (t, i) {
 			switch(t){
 				case 'class':
 					map.push({
@@ -11,13 +11,6 @@ function lexer (code) {
 						value: t
 					})
 					break;
-				case 'print':
-					map.push({
-						type: 'print',
-						value: t
-					})
-					break;
-
 				case 'fn':
 					map.push({
 						type: 'function',
@@ -70,6 +63,11 @@ function lexer (code) {
 							type: 'expression',
 							value: t === '{' ? 'open' : 'closes'
 						})
+					}else if(tokens[i+1] === '(' && tokens[i-1] !== 'fn'){
+						map.push( {
+							type: 'call',
+							value: t
+						})
 					}else{
 						map.push( {
 							type: 'reference',
@@ -115,7 +113,15 @@ function transformTokensToArgumentsWithoutInterface(tokens){
 	return res
 }
 
+function transformIntoCall(name, args){
+	let res = {
+		type: 'call',
+		name,
+		arguments: args
+	}
 
+	return res
+}
 
 
 function parser(tokens, currentScope) {
@@ -155,6 +161,25 @@ function parser(tokens, currentScope) {
 				}
 
 				break;
+			case 'call':
+				currentScope.body.push(
+					transformIntoCall(
+						value,
+						getAllTokensUntil(tokens.slice(i+2), 'group', 'closes')
+					)
+				)
+
+				break;
+			case 'reference':
+
+				if(value === 'open'){
+					const closingTokenIndex = parser(tokens.slice(i+1), currentScope.body[currentScope.body.length - 1])
+					i += closingTokenIndex +1;
+				} else if(value === 'closes') {
+					return i
+				}
+
+				break;
 			case 'variable':
 				currentScope.body.push({
 					type: 'variable',
@@ -183,9 +208,23 @@ function parser(tokens, currentScope) {
 
 				const obj = currentScope.body[currentScope.body.length - 1];
 
-				obj.value = tokens[i+1]
+				const valueObj = tokens[i+1]
+
+				switch (valueObj.type){
+					case 'call':
+						obj.value = transformIntoCall(
+							valueObj.value,
+							getAllTokensUntil(tokens.slice(i+3),'group','closes')
+						)
+						break;
+					default:
+						obj.value = valueObj
+				}
+
 				obj.name = tokens[i-2].value
 				obj.interface = tokens[i-1].value
+
+				i += 1;
 
 				if(isValidType(receivedType,expectedType)){
 					
@@ -248,32 +287,25 @@ class hola {
 
 const tokens = lexer(`
 
-
-fn test(): string {
-	print("hola" );
-	return "test";
-}
-
-var wow string = test();
-
-class hola {
-
-	var hello string = "hola";
-
-	fn constructor( test string, whatever boolean ) {
-
+class test {
+	fn constructor(){
+		test("oh")
 	}
 }
 
-return wow;
+fn test(ok string): string {
+	return ok;
+}
 
+var whatever string = test("1");
 
-
+return whatever;
 
 
 `)
 
 //console.log(tokens.flat())
+
 
 const ast = parser(tokens.flat(),{
 	body:[]

@@ -6,11 +6,11 @@ class Stack {
         this.ops.push(op)
     }
 
-    executeFunctionByName(name: string){
+    executeFunctionByName(name: string, args: any[]){
         let res = null;
         this.ops.forEach((action: any) => {
             if(action.name === name) {
-                const a = action.fn();
+                const a = action.fn(args);
                 res = a.computedValue
             }
         })
@@ -41,20 +41,23 @@ class VM {
             switch (action.type){
                 case 'function':
 
+
                     this.stack.push({
                         name: action.name,
-                        fn: () => {
+                        fn: (args: any[]) => {
+                            args.forEach((arg, i) => {
+                                const finalVar = {
+                                    type: 'variable',
+                                    name: action.arguments[i].name,
+                                    computedValue: arg.value
+                                }
+
+                                this.stack.push(finalVar)
+                            })
+
                             return this.runScope(action)
                         }
                     })
-
-                    break;
-                case 'reference':
-                    switch (action.value) {
-                        case 'print':
-                            console.log(...action.arguments.map((arg: any)=>arg.value))
-                            break;
-                    }
 
                     break;
                 case 'return':
@@ -79,8 +82,8 @@ class VM {
                         computedValue: null
                     }
                     switch (action.value.type) {
-                        case 'reference':
-                            finalVar.computedValue = this.stack.executeFunctionByName(action.value.value)
+                        case 'call':
+                            finalVar.computedValue = this.stack.executeFunctionByName(action.value.name, action.value.arguments)
                             break;
                     }
                     this.stack.push(finalVar)

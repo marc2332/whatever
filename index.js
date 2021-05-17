@@ -264,7 +264,7 @@ function simulateCode(astToken){
 	let simulation
 	switch(astToken.type){
 		case 'variable':
-			simulation = `var ${astToken.name} ${astToken.interface} = ${astToken.value};`
+			simulation = `var ${astToken.name} ${astToken.interface} = ${astToken.value.value};`
 			break;
 	}
 	return simulation
@@ -299,7 +299,12 @@ fn test(ok string): string {
 
 var whatever string = test("1");
 
+var lol boolean = "1";
+
+
 return whatever;
+
+
 
 
 `)

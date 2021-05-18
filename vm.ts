@@ -1,7 +1,7 @@
 import sample_abi from './index.js';
 
-class Stack {
-    ops: any= [];
+class Memory {
+    ops: any = [];
     push(op: any){
         this.ops.push(op)
     }
@@ -29,10 +29,10 @@ class Stack {
 
 class VM {
     abi: any;
-    stack: Stack;
+    memory: Memory;
     constructor(abi: any) {
         this.abi = abi;
-        this.stack = new Stack();
+        this.memory = new Memory();
     }
 
     runScope(abi: any): any{
@@ -41,7 +41,7 @@ class VM {
             switch (action.type){
                 case 'function':
 
-                    this.stack.push({
+                    this.memory.push({
                         name: action.name,
                         fn: (args: any[]) => {
                             args.forEach((arg, i) => {
@@ -51,7 +51,7 @@ class VM {
                                     computedValue: arg.value
                                 }
 
-                                this.stack.push(finalVar)
+                                this.memory.push(finalVar)
                             })
 
                             return this.runScope(action)
@@ -68,10 +68,10 @@ class VM {
 
                     switch (action.value.type) {
                         case 'call':
-                            finalRet.computedValue = this.stack.executeFunctionByName(action.value.name, action.value.arguments)
+                            finalRet.computedValue = this.memory.executeFunctionByName(action.value.name, action.value.arguments)
                             break;
                         case 'reference':
-                            finalRet.computedValue = this.stack.getValueByVariableName(action.value.value)
+                            finalRet.computedValue = this.memory.getValueByVariableName(action.value.value)
                             break;
                         case 'string':
                             finalRet.computedValue = action.value.value
@@ -93,11 +93,11 @@ class VM {
                             finalVar.computedValue = this.runScope(action.value).computedValue
                             break;
                         case 'call':
-                            finalVar.computedValue = this.stack.executeFunctionByName(action.value.name, action.value.arguments)
+                            finalVar.computedValue = this.memory.executeFunctionByName(action.value.name, action.value.arguments)
                             break;
                     }
 
-                    this.stack.push(finalVar)
+                    this.memory.push(finalVar)
                     break;
             }
         })

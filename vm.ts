@@ -10,7 +10,7 @@ class Memory {
         let res = null;
         this.ops.forEach((action: any) => {
             if(action.name === name) {
-                const a = action.fn(args);
+                const a = action.fn(args) || {computedValue: null};
                 res = a.computedValue
             }
         })
@@ -24,6 +24,13 @@ class Memory {
         })
         return res;
     }
+
+    setValueByVariableName(name: string, newValue: any){
+        this.ops.forEach((action: any) => {
+            if(action.name === name) action.computedValue = newValue
+        })
+    }
+
 }
 
 
@@ -39,6 +46,21 @@ class VM {
         let res = null;
         abi.body.forEach((action: any) => {
             switch (action.type){
+
+                case 'assignment':
+
+                    let valueAssign = null;
+
+                    switch (action.value.type) {
+                        case 'reference':
+                            valueAssign = this.memory.getValueByVariableName(action.value.value)
+                            break;
+                    }
+
+                    this.memory.setValueByVariableName(action.name, valueAssign)
+
+                    break;
+
                 case 'function':
 
                     this.memory.push({
@@ -57,6 +79,12 @@ class VM {
                             return this.runScope(action)
                         }
                     })
+
+                    break;
+
+                case 'call':
+
+                    this.memory.executeFunctionByName(action.name, action.arguments)
 
                     break;
 
@@ -87,7 +115,6 @@ class VM {
                         name: action.name,
                         computedValue: null
                     }
-
                     switch (action.value.type) {
                         case 'expression':
                             finalVar.computedValue = this.runScope(action.value).computedValue
@@ -95,6 +122,8 @@ class VM {
                         case 'call':
                             finalVar.computedValue = this.memory.executeFunctionByName(action.value.name, action.value.arguments)
                             break;
+                        default:
+                            finalVar.computedValue = action.value.value
                     }
 
                     this.memory.push(finalVar)

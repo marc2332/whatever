@@ -17,6 +17,12 @@ function lexer (code) {
 						value: t
 					})
 					break;
+				case 'pub':
+					map.push({
+						type: 'modifier',
+						value: t
+					})
+					break;
 				case 'fn':
 					map.push({
 						type: 'function',
@@ -155,6 +161,9 @@ function parser(tokens, currentScope) {
 
 				currentScope.body.push({
 					type: 'function',
+					modifiers:{
+						pub: tokens > 1 && tokens[i-1].type === 'modifier' && tokens[i-1].value === 'pub'
+					},
 					name: tokens[i+1].value,
 					arguments: transformTokensToArguments(getAllTokensUntil(tokens.slice(i+3), 'group', 'closes')),
 					interface: returnInterface,
@@ -196,7 +205,10 @@ function parser(tokens, currentScope) {
 					type: 'variable',
 					value: null,
 					name: null,
-					interface: null
+					interface: null,
+					modifiers: {
+						pub: tokens > 1 && tokens[i-1].type === 'modifier' && tokens[i-1].value === 'pub'
+					}
 				})
 				break;
 			case 'return':
@@ -235,13 +247,21 @@ function parser(tokens, currentScope) {
 
 				const expectedType = tokens[i-1].value
 				const receivedType = getType(tokens[i+1].value)
-
-				const obj = currentScope.body[currentScope.body.length - 1];
-
+				let obj
+				const isDeclaration = i > 2 && tokens[i-3].type === 'variable';
 				const valueObj = tokens[i+1]
 
-				obj.name = tokens[i-2].value
-				obj.interface = tokens[i-1].value
+				if(isDeclaration){
+					obj = currentScope.body[currentScope.body.length - 1];
+					obj.name = tokens[i-2].value
+					obj.interface = tokens[i-1].value
+				}else {
+					obj = {
+						type: 'assignment'
+					}
+					obj.name = tokens[i-1].value
+					obj.interface = "string"
+				}
 
 				switch (valueObj.type){
 					case 'call':
@@ -263,17 +283,22 @@ function parser(tokens, currentScope) {
 
 				}
 
+				if(isDeclaration){
+					if(isValidType(receivedType,expectedType)){
+
+					}else{
+						compilerError(
+							`${simulateCode(obj)} \n\n	Expected type was '${expectedType}' but received type of '${receivedType}'`)
+
+					}
+				}else{
+					currentScope.body.push(obj)
+				}
 
 				i += 1;
 
 
-				if(isValidType(receivedType,expectedType)){
-					
-				}else{
-					compilerError(
-						`${simulateCode(currentScope.body[currentScope.body.length-1])} \n\n	Expected type was '${expectedType}' but received type of '${receivedType}'`)
-					
-				}
+				
 				
 				break;
 		}
@@ -313,21 +338,6 @@ function simulateCode(astToken){
 
 /*
 
-
-class hola {
-
-	var hello string = "hola";
-
-	fn constructor( test string, whatever boolean ) {
-
-	}
-}
-
- */
-
-
-const tokens = lexer(`
-
 fn test(ok string): string {
 
 	fn wow(omg string): string {
@@ -341,14 +351,28 @@ var hola string = expr {
 	return test("lol");
 }
 
-return hola;
+ */
 
 
+const tokens = lexer(`
 
+pub var whatever: boolean = false;
 
+pub fn main(value boolean): string {
+	
+	whatever = value;
 
+}
 
+pub fn change_boolean(value boolean): boolean {
 
+	whatever = value;
+	
+}
+
+change_boolean(true);
+
+return whatever;
 
 `)
 

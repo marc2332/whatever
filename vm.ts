@@ -41,7 +41,6 @@ class VM {
             switch (action.type){
                 case 'function':
 
-
                     this.stack.push({
                         name: action.name,
                         fn: (args: any[]) => {
@@ -60,12 +59,17 @@ class VM {
                     })
 
                     break;
+
                 case 'return':
                     const finalRet = {
                         type: 'value',
                         computedValue: null
                     }
+
                     switch (action.value.type) {
+                        case 'call':
+                            finalRet.computedValue = this.stack.executeFunctionByName(action.value.name, action.value.arguments)
+                            break;
                         case 'reference':
                             finalRet.computedValue = this.stack.getValueByVariableName(action.value.value)
                             break;
@@ -73,6 +77,8 @@ class VM {
                             finalRet.computedValue = action.value.value
                             break;
                     }
+
+
                     res = finalRet
                     break;
                 case 'variable':
@@ -81,11 +87,16 @@ class VM {
                         name: action.name,
                         computedValue: null
                     }
+
                     switch (action.value.type) {
+                        case 'expression':
+                            finalVar.computedValue = this.runScope(action.value).computedValue
+                            break;
                         case 'call':
                             finalVar.computedValue = this.stack.executeFunctionByName(action.value.name, action.value.arguments)
                             break;
                     }
+
                     this.stack.push(finalVar)
                     break;
             }

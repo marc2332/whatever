@@ -131,15 +131,12 @@ function transformTokensToArgumentsWithoutInterface(tokens){
 }
 
 function transformIntoCall(name, args){
-	let res = {
+	return {
 		type: 'call',
 		name,
 		arguments: args
 	}
-
-	return res
 }
-
 
 function parser(tokens, currentScope) {
 	for(let i = 0; i < tokens.length; i++){
@@ -162,7 +159,7 @@ function parser(tokens, currentScope) {
 				currentScope.body.push({
 					type: 'function',
 					modifiers:{
-						pub: tokens > 1 && tokens[i-1].type === 'modifier' && tokens[i-1].value === 'pub'
+						pub: i > 0 && tokens[i-1].type === 'modifier' && tokens[i-1].value === 'pub'
 					},
 					name: tokens[i+1].value,
 					arguments: transformTokensToArguments(getAllTokensUntil(tokens.slice(i+3), 'group', 'closes')),
@@ -204,10 +201,10 @@ function parser(tokens, currentScope) {
 				currentScope.body.push({
 					type: 'variable',
 					value: null,
-					name: null,
+					name: tokens[i+1].value,
 					interface: null,
 					modifiers: {
-						pub: tokens > 1 && tokens[i-1].type === 'modifier' && tokens[i-1].value === 'pub'
+						pub: i > 0 && tokens[i-1].type === 'modifier' && tokens[i-1].value === 'pub'
 					}
 				})
 				break;
@@ -253,7 +250,6 @@ function parser(tokens, currentScope) {
 
 				if(isDeclaration){
 					obj = currentScope.body[currentScope.body.length - 1];
-					obj.name = tokens[i-2].value
 					obj.interface = tokens[i-1].value
 				}else {
 					obj = {
@@ -297,8 +293,6 @@ function parser(tokens, currentScope) {
 
 				i += 1;
 
-
-				
 				
 				break;
 		}
@@ -356,7 +350,7 @@ var hola string = expr {
 
 const tokens = lexer(`
 
-pub var whatever: boolean = false;
+pub var whatever: boolean;
 
 pub fn main(value boolean): string {
 	
@@ -369,10 +363,6 @@ pub fn change_boolean(value boolean): boolean {
 	whatever = value;
 	
 }
-
-change_boolean(true);
-
-return whatever;
 
 `)
 

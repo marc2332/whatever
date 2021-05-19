@@ -41,13 +41,17 @@ class Memory {
 
 class VM {
     abi: any;
-    constructor(abi: any) {
+    cachedObjects: any;
+    constructor(abi: any, cachedObjects: any) {
         this.abi = abi;
+        this.cachedObjects = cachedObjects;
     }
 
     runScope(abi: any, scoppedOps: any[]): any{
         const memory = new Memory(scoppedOps);
-        let res = null;
+        let res: any = {
+            computedValue: 0
+        };
         abi.body.forEach((action: any) => {
             switch (action.type){
 
@@ -117,37 +121,61 @@ class VM {
                     const finalVar = {
                         type: 'variable',
                         name: action.name,
-                        computedValue: null
+                        computedValue: null,
+                        isPublic: action.modifiers.pub
                     }
-                    switch (action.value.type) {
-                        case 'expression':
-                            finalVar.computedValue = this.runScope(action.value, memory.ops).computedValue
-                            break;
-                        case 'call':
-                            finalVar.computedValue = memory.executeFunctionByName(action.value.name, action.value.arguments)
-                            break;
-                        default:
-                            finalVar.computedValue = action.value.value
+                    if(action.value != null){
+                        switch (action.value.type) {
+                            case 'expression':
+                                finalVar.computedValue = this.runScope(action.value, memory.ops).computedValue
+                                break;
+                            case 'call':
+                                finalVar.computedValue = memory.executeFunctionByName(action.value.name, action.value.arguments)
+                                break;
+                            default:
+                                finalVar.computedValue = action.value.value
+                        }
+                    } else {
+                        finalVar.computedValue = this.cachedObjects[action.name];
                     }
 
                     memory.push(finalVar)
                     break;
             }
         })
-        return res
+        return {
+            computedValue: res.computedValue,
+            memory: memory
+        }
     }
 
     run(){
-        return this.runScope(this.abi, [])
+        const res = this.runScope(this.abi, []);
+        return {
+            computedValue: res.computedValue,
+            publicObjects: res.memory.ops.filter((op: any) => {
+                if(op.isPublic === true) return op
+            })
+        }
     }
 }
 
 
-const vm0 = new VM(sample_abi);
+const vm0 = new VM(sample_abi,{
+    whatever: true
+});
 
 const res = vm0.run();
 
-console.log(res.computedValue)
+console.log(res.publicObjects.map(({ name, computedValue }: any) => {
+    return {
+        name,
+        value: computedValue
+    }
+}))
+
+
+
 
 
 

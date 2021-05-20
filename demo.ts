@@ -48,7 +48,16 @@ const vm0 = new VM(
   // We can pass custom initial values to public variables
   <any> {
     whatever: true,
-  },
+  },[
+        {
+            type: 'call',
+            name: 'main',
+            arguments: [{
+                type: 'boolean',
+                value: false
+            }]
+        }
+    ]
 );
 
 const VmResult = vm0.run();

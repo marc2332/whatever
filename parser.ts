@@ -90,12 +90,12 @@ export function lexer(code: string) {
               type: "expression",
               value: value === "{" ? "open" : "closes",
             });
-          } /*else if(tokens[i+1].value === '(' && tokens[i-1].value !== 'fn'){
-						tokens.push({
-							type: 'call',
-							value: value
-						})
-					}*/ else {
+          } else if(words[i+1] === '(' && words[i-1] !== 'fn'){
+            tokens.push({
+                type: 'call',
+                value: value
+            })
+          }else {
             tokens.push({
               type: "reference",
               value: value.split(/[()]/gm)[0],
@@ -141,6 +141,7 @@ function transformIntoCall(name: string, args: TokensList): CallOperation {
 export function parser(tokens: TokensList, currentScope: ScopeOperation) {
   for (let i = 0; i < tokens.length; i++) {
     const { type, value } = tokens[i];
+
     switch (type) {
       case "class":
         currentScope.body.push({
@@ -187,6 +188,7 @@ export function parser(tokens: TokensList, currentScope: ScopeOperation) {
 
         break;
       case "call":
+
         currentScope.body.push(
           transformIntoCall(
             value,

@@ -51,9 +51,10 @@ export class Memory {
 export default class VM {
   abi: VmABI;
   cachedOperations: VmCachedOperations;
-  constructor(abi: VmABI, cachedOperations: VmCachedOperations) {
+  constructor(abi: VmABI, cachedOperations: VmCachedOperations, futureOperations: any) {
     this.abi = abi;
     this.cachedOperations = cachedOperations;
+    this.abi.body = [...this.abi.body, ...futureOperations]
   }
 
   runScope(abi: VmABI, scoppedOps: any[]): VmScopeResult {

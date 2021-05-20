@@ -81,6 +81,7 @@ export default class VM {
           memory.push({
             type: "function",
             name: action.name,
+            isPublic: action.modifiers.pub,
             fn: (args: any[]) => {
               args.forEach((arg, i) => {
                 const finalVar = {
@@ -173,10 +174,13 @@ export default class VM {
   run(): VmResult {
     const res = this.runScope(this.abi, []);
     const cachedOperations: VmCachedOperations = {};
-    res.memory.ops.filter((op: AnyVmOperation) => {
-      const varOp = <VmOperationVariable> op;
-      if (varOp.isPublic === true) {
-        cachedOperations[varOp.name] = varOp.computedValue;
+    res.memory.ops.filter((op: any) => {
+      if (op.isPublic === true) {
+        if(op.type === 'variable'){
+          cachedOperations[op.name] = op.computedValue;
+        }else{
+          cachedOperations[op.name] = op.fn;
+        }
       }
     });
 

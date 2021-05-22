@@ -1,6 +1,7 @@
 import {
   ArgumentsList,
   CallOperation,
+  Operation,
   ReturnOperation,
   ScopeOperation,
   Token,
@@ -90,12 +91,12 @@ export function lexer(code: string) {
               type: "expression",
               value: value === "{" ? "open" : "closes",
             });
-          } else if(words[i+1] === '(' && words[i-1] !== 'fn'){
+          } else if (words[i + 1] === "(" && words[i - 1] !== "fn") {
             tokens.push({
-                type: 'call',
-                value: value
-            })
-          }else {
+              type: "call",
+              value: value,
+            });
+          } else {
             tokens.push({
               type: "reference",
               value: value.split(/[()]/gm)[0],
@@ -118,11 +119,24 @@ function getAllTokensUntil<T>(tokens: TokensList, type: string, value: T) {
   return res;
 }
 
+function getMatchingOperation(
+  operations: Operation[],
+  type: string,
+  name: string,
+): Operation | undefined {
+  return operations.find((op: Operation) => {
+    if (op.type === type && op.name === name) {
+      return op;
+    }
+  });
+}
+
 function transformTokensToArguments(tokens: TokensList): ArgumentsList {
   const res: ArgumentsList = [];
   for (let i = 0; i < tokens.length; i += 2) {
     const token = tokens[i];
     res.push({
+      type: "argument",
       name: token.value,
       interface: tokens[i + 1].value,
     });
@@ -138,7 +152,11 @@ function transformIntoCall(name: string, args: TokensList): CallOperation {
   };
 }
 
-export function parser(tokens: TokensList, currentScope: ScopeOperation) {
+export function parser(
+  tokens: TokensList,
+  currentScope: ScopeOperation,
+  allDefinitions: any,
+) {
   for (let i = 0; i < tokens.length; i++) {
     const { type, value } = tokens[i];
 
@@ -157,26 +175,34 @@ export function parser(tokens: TokensList, currentScope: ScopeOperation) {
           ? tokens[i + 2].value
           : "self";
 
-        currentScope.body.push({
+        const functionArguments = transformTokensToArguments(
+          getAllTokensUntil(tokens.slice(i + 3), "group", "closes"),
+        );
+        const functionDefinition = {
           type: "function",
           modifiers: {
             pub: i > 0 && tokens[i - 1].type === "modifier" &&
               tokens[i - 1].value === "pub",
           },
           name: tokens[i + 1].value,
-          arguments: transformTokensToArguments(
-            getAllTokensUntil(tokens.slice(i + 3), "group", "closes"),
-          ),
+          arguments: functionArguments,
           interface: returnInterface,
           body: [],
-        });
+        };
+
+        currentScope.body.push(functionDefinition);
+        allDefinitions.push(functionDefinition);
 
         break;
       case "expression":
         if (value === "open") {
+          const functionArguments =
+            currentScope.body[currentScope.body.length - 1].arguments || [];
+
           const { tokenIndex } = parser(
             tokens.slice(i + 1),
             currentScope.body[currentScope.body.length - 1],
+            [...allDefinitions, ...functionArguments],
           );
           i += tokenIndex + 1;
         } else {
@@ -188,7 +214,6 @@ export function parser(tokens: TokensList, currentScope: ScopeOperation) {
 
         break;
       case "call":
-
         currentScope.body.push(
           transformIntoCall(
             value,
@@ -199,9 +224,12 @@ export function parser(tokens: TokensList, currentScope: ScopeOperation) {
         break;
       case "reference":
         if (value === "open") {
+          const functionArguments =
+            currentScope.body[currentScope.body.length - 1].arguments;
           const { tokenIndex } = parser(
             tokens.slice(i + 1),
             currentScope.body[currentScope.body.length - 1],
+            [...allDefinitions, ...functionArguments],
           );
           i += tokenIndex + 1;
         } else if (value === "closes") {
@@ -213,16 +241,19 @@ export function parser(tokens: TokensList, currentScope: ScopeOperation) {
 
         break;
       case "variable":
-        currentScope.body.push({
+        const variableDefiniton = {
           type: "variable",
           value: null,
           name: tokens[i + 1].value,
-          interface: null,
+          interface: tokens[i + 2].value,
           modifiers: {
             pub: i > 0 && tokens[i - 1].type === "modifier" &&
               tokens[i - 1].value === "pub",
           },
-        });
+        };
+
+        currentScope.body.push(variableDefiniton);
+        allDefinitions.push(variableDefiniton);
         break;
       case "return":
         const objRet: ReturnOperation = {
@@ -256,8 +287,7 @@ export function parser(tokens: TokensList, currentScope: ScopeOperation) {
         break;
 
       case "assignment":
-        const expectedType = tokens[i - 1].value;
-        const receivedType = getType(tokens[i + 1].value);
+        let expectedType;
         const isDeclaration = i > 2 && tokens[i - 3].type === "variable";
         const valueObj = tokens[i + 1];
         let obj;
@@ -265,15 +295,24 @@ export function parser(tokens: TokensList, currentScope: ScopeOperation) {
         if (isDeclaration) {
           obj = {
             ...currentScope.body[currentScope.body.length - 1],
-            interface: tokens[i - 1].value,
           };
+          expectedType = tokens[i - 1].value;
         } else {
+          const referenceName = tokens[i - 1].value;
+          const referenceToken = <VariableOperation> getAllTokensUntil(
+            allDefinitions,
+            "variable",
+            referenceName,
+          )[0];
+          expectedType = referenceToken.interface;
+
           obj = {
             type: "assignment",
-            name: tokens[i - 1].value,
-            interface: "string",
+            name: referenceName,
           };
         }
+
+        let receivedType;
 
         switch (valueObj.type) {
           case "call":
@@ -281,25 +320,40 @@ export function parser(tokens: TokensList, currentScope: ScopeOperation) {
               valueObj.value,
               getAllTokensUntil(tokens.slice(i + 3), "group", "closes"),
             );
+            // WIP
+            receivedType = expectedType;
             break;
           case "expression":
             obj.value = {
               type: "expression",
               body: [],
             };
+            // WIP
+            receivedType = expectedType;
+            break;
+          case "reference":
+            const referenceReceivedName = tokens[i + 1].value;
+            const referenceReceivedToken =
+              <VariableOperation> getMatchingOperation(
+                allDefinitions,
+                "argument",
+                referenceReceivedName,
+              );
+            if (referenceReceivedToken) {
+              receivedType = referenceReceivedToken.interface;
+            }
+            obj.value = valueObj;
             break;
           default:
             obj.value = valueObj;
+            receivedType = getType(valueObj.value);
         }
 
-        if (isDeclaration) {
-          if (!isValidType(receivedType, expectedType)) {
-            compilerError(
-              `${
-                simulateCode(obj)
-              } \n\n	Expected type was '${expectedType}' but received type of '${receivedType}'`,
-            );
-          }
+        if (!isValidType(receivedType, expectedType)) {
+          compilerError(
+            `${simulateCode(obj)} 
+              \n      Expected type was '${expectedType}' but received type of '${receivedType}'`,
+          );
         } else {
           currentScope.body.push(obj);
         }
@@ -318,11 +372,9 @@ export function parser(tokens: TokensList, currentScope: ScopeOperation) {
 
 function compilerError(err: string) {
   console.error(`
-	-- Error -
+      || Error ||
 	
-	${err}
-	
-	----
+      ${err}
 `);
 }
 
@@ -340,6 +392,9 @@ function simulateCode(astToken: VariableOperation): string {
     case "variable":
       simulation =
         `var ${astToken.name} ${astToken.interface} = ${astToken.value.value};`;
+      break;
+    case "assignment":
+      simulation = `${astToken.name} = ${astToken.value.value};`;
       break;
   }
   return simulation;

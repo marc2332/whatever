@@ -8,6 +8,7 @@ export interface Token {
 export type TokensList = Token[];
 
 export interface Argument {
+  type: string;
   name: string;
   interface: string;
 }
@@ -15,6 +16,7 @@ export interface Argument {
 export type ArgumentsList = Argument[];
 
 export interface Operation {
+  name?: string;
   type: string;
   value: any;
 }

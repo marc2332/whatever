@@ -22,16 +22,12 @@ const tokens = lexer(`
 
 pub var whatever: boolean;
 
-pub fn main(value boolean): string {
-	
+pub fn main(value boolean): void {
 	whatever = value;
-
 }
 
-pub fn change_boolean(value boolean): boolean {
-
+pub fn change_boolean(value boolean): void {
 	whatever = value;
-	
 }
 
 `);
@@ -41,6 +37,7 @@ const abi = parser(
   <any> {
     body: [],
   },
+  [],
 );
 
 const vm0 = new VM(
@@ -48,16 +45,17 @@ const vm0 = new VM(
   // We can pass custom initial values to public variables
   <any> {
     whatever: true,
-  },[
-        {
-            type: 'call',
-            name: 'main',
-            arguments: [{
-                type: 'boolean',
-                value: false
-            }]
-        }
-    ]
+  },
+  [
+    {
+      type: "call",
+      name: "main",
+      arguments: [{
+        type: "boolean",
+        value: false,
+      }],
+    },
+  ],
 );
 
 const VmResult = vm0.run();

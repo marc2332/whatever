@@ -51,10 +51,14 @@ export class Memory {
 export default class VM {
   abi: VmABI;
   cachedOperations: VmCachedOperations;
-  constructor(abi: VmABI, cachedOperations: VmCachedOperations, futureOperations: any) {
+  constructor(
+    abi: VmABI,
+    cachedOperations: VmCachedOperations,
+    futureOperations: any,
+  ) {
     this.abi = abi;
     this.cachedOperations = cachedOperations;
-    this.abi.body = [...this.abi.body, ...futureOperations]
+    this.abi.body = [...this.abi.body, ...futureOperations];
   }
 
   runScope(abi: VmABI, scoppedOps: any[]): VmScopeResult {
@@ -176,9 +180,9 @@ export default class VM {
     const cachedOperations: VmCachedOperations = {};
     res.memory.ops.filter((op: any) => {
       if (op.isPublic === true) {
-        if(op.type === 'variable'){
+        if (op.type === "variable") {
           cachedOperations[op.name] = op.computedValue;
-        }else{
+        } else {
           cachedOperations[op.name] = op.fn;
         }
       }

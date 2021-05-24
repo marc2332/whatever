@@ -126,6 +126,8 @@ export default class VM {
                 action.value.value,
               );
               break;
+            case "boolean":
+            case "number":
             case "string":
               finalRet.computedValue = action.value.value;
               break;

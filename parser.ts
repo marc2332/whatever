@@ -11,63 +11,72 @@ import {
 
 export function lexer(code: string) {
   const tokens: TokensList = [];
-  code.split(/;/).map((sep) => {
-    const splitted = sep.split(/[\s+:]|([()])/);
+  code.split(/[;\n]/).map((sep, lineNumber) => {
+    const splitted = sep.split(/[\s+,:]|([()])/);
     const words = splitted.filter(Boolean);
-    words.forEach(function (value: string, i) {
+    words.forEach((value: string, i) => {
       switch (value) {
         case "class":
           tokens.push({
             type: "class",
             value,
+            lineNumber,
           });
           break;
         case "expr":
           tokens.push({
-            type: "expression",
-            value,
+            type: "anon_expression",
+            value: "anon_expression",
+            lineNumber,
           });
           break;
         case "pub":
           tokens.push({
             type: "modifier",
             value,
+            lineNumber,
           });
           break;
         case "fn":
           tokens.push({
             type: "function",
             value,
+            lineNumber,
           });
           break;
         case "var":
           tokens.push({
             type: "variable",
             value,
+            lineNumber,
           });
           break;
         case "=":
           tokens.push({
             type: "assignment",
             value,
+            lineNumber,
           });
           break;
         case "(":
           tokens.push({
             type: "group",
             value: "open",
+            lineNumber,
           });
           break;
         case ")":
           tokens.push({
             type: "group",
             value: "closes",
+            lineNumber,
           });
           break;
         case "return":
           tokens.push({
             type: "return",
             value,
+            lineNumber,
           });
           break;
         default:
@@ -75,31 +84,37 @@ export function lexer(code: string) {
             tokens.push({
               type: "string",
               value,
+              lineNumber,
             });
           } else if (!isNaN(Number(value))) {
             tokens.push({
               type: "number",
               value: Number(value),
+              lineNumber,
             });
           } else if (value === "true" || value === "false") {
             tokens.push({
               type: "boolean",
               value: value === "true",
+              lineNumber,
             });
           } else if (value === "{" || value === "}") {
             tokens.push({
               type: "expression",
               value: value === "{" ? "open" : "closes",
+              lineNumber,
             });
           } else if (words[i + 1] === "(" && words[i - 1] !== "fn") {
             tokens.push({
               type: "call",
               value: value,
+              lineNumber,
             });
           } else {
             tokens.push({
               type: "reference",
               value: value.split(/[()]/gm)[0],
+              lineNumber,
             });
           }
       }
@@ -144,6 +159,21 @@ function transformTokensToArguments(tokens: TokensList): ArgumentsList {
   return res;
 }
 
+function getAllVariablesUntil<T>(
+  variables: VariableOperation[],
+  type: string,
+  value: T,
+) {
+  let res: VariableOperation[] = [];
+  for (const variable of variables) {
+    if (variable.type === type && variable.value === value) {
+      return res;
+    }
+    res.push(variable);
+  }
+  return res;
+}
+
 function transformIntoCall(name: string, args: TokensList): CallOperation {
   return {
     type: "call",
@@ -171,13 +201,12 @@ export function parser(
         break;
 
       case "function":
-        const returnInterface = tokens[i + 2].value !== "open"
-          ? tokens[i + 2].value
-          : "self";
-
         const functionArguments = transformTokensToArguments(
           getAllTokensUntil(tokens.slice(i + 3), "group", "closes"),
         );
+        const returnInterface =
+          tokens[i + (functionArguments.length * 2) + 4].value;
+
         const functionDefinition = {
           type: "function",
           modifiers: {
@@ -273,21 +302,32 @@ export function parser(
           default:
             objRet.value = valueObjRet;
         }
-        switch (currentScope.type) {
-          case "variable":
-            currentScope.value.body.push(objRet);
-            break;
-          case "function":
-          default:
-            currentScope.body.push(objRet);
-        }
 
-        i += 1;
+        const receivedTypeReturn = getType(valueObjRet.value);
+        const expectedTypeReturn = currentScope.interface;
+
+        if (receivedTypeReturn !== expectedTypeReturn) {
+          compilerError(
+            `${simulateCode(objRet)} 
+              \n      Expected return type was '${expectedTypeReturn}' but returned type of '${receivedTypeReturn}'`,
+          );
+        } else {
+          switch (currentScope.type) {
+            case "variable":
+              currentScope.value.body.push(objRet);
+              break;
+            case "function":
+            default:
+              currentScope.body.push(objRet);
+          }
+
+          i += 1;
+        }
 
         break;
 
       case "assignment":
-        let expectedType;
+        let expectedTypeAssignment;
         const isDeclaration = i > 2 && tokens[i - 3].type === "variable";
         const valueObj = tokens[i + 1];
         let obj;
@@ -296,15 +336,15 @@ export function parser(
           obj = {
             ...currentScope.body[currentScope.body.length - 1],
           };
-          expectedType = tokens[i - 1].value;
+          expectedTypeAssignment = tokens[i - 1].value;
         } else {
           const referenceName = tokens[i - 1].value;
-          const referenceToken = <VariableOperation> getAllTokensUntil(
+          const referenceToken = getAllVariablesUntil(
             allDefinitions,
             "variable",
             referenceName,
           )[0];
-          expectedType = referenceToken.interface;
+          expectedTypeAssignment = referenceToken.interface;
 
           obj = {
             type: "assignment",
@@ -312,7 +352,7 @@ export function parser(
           };
         }
 
-        let receivedType;
+        let receivedTypeAssignment;
 
         switch (valueObj.type) {
           case "call":
@@ -321,15 +361,15 @@ export function parser(
               getAllTokensUntil(tokens.slice(i + 3), "group", "closes"),
             );
             // WIP
-            receivedType = expectedType;
+            receivedTypeAssignment = expectedTypeAssignment;
             break;
-          case "expression":
+          case "anon_expression":
             obj.value = {
               type: "expression",
               body: [],
             };
             // WIP
-            receivedType = expectedType;
+            expectedTypeAssignment = receivedTypeAssignment;
             break;
           case "reference":
             const referenceReceivedName = tokens[i + 1].value;
@@ -340,19 +380,19 @@ export function parser(
                 referenceReceivedName,
               );
             if (referenceReceivedToken) {
-              receivedType = referenceReceivedToken.interface;
+              receivedTypeAssignment = referenceReceivedToken.interface;
             }
             obj.value = valueObj;
             break;
           default:
             obj.value = valueObj;
-            receivedType = getType(valueObj.value);
+            receivedTypeAssignment = getType(valueObj.value);
         }
 
-        if (!isValidType(receivedType, expectedType)) {
+        if (!isValidType(receivedTypeAssignment, expectedTypeAssignment)) {
           compilerError(
             `${simulateCode(obj)} 
-              \n      Expected type was '${expectedType}' but received type of '${receivedType}'`,
+              \n      Expected type was '${expectedTypeAssignment}' but received type of '${receivedTypeAssignment}'`,
           );
         } else {
           currentScope.body.push(obj);
@@ -386,7 +426,7 @@ function getType(value: any): string {
   return typeof value;
 }
 
-function simulateCode(astToken: VariableOperation): string {
+function simulateCode(astToken: any): string {
   let simulation: string = "";
   switch (astToken.type) {
     case "variable":
@@ -395,6 +435,9 @@ function simulateCode(astToken: VariableOperation): string {
       break;
     case "assignment":
       simulation = `${astToken.name} = ${astToken.value.value};`;
+      break;
+    case "return":
+      simulation = `return ${astToken.value.value}`;
       break;
   }
   return simulation;

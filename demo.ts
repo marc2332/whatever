@@ -22,8 +22,13 @@ const tokens = lexer(`
 
 pub var whatever: boolean;
 
-pub fn main(value boolean): void {
+pub var hello: string = expr {
+ return "hola"
+}
+
+pub fn main(value boolean, test number): number {
 	whatever = value;
+	return 0
 }
 
 pub fn change_boolean(value boolean): void {

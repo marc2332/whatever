@@ -3,6 +3,7 @@ import { Memory } from "./vm.ts";
 export interface Token {
   type: string;
   value: any;
+  lineNumber: number;
 }
 
 export type TokensList = Token[];
@@ -24,6 +25,7 @@ export interface Operation {
 export interface ScopeOperation extends Operation {
   name: string;
   body: any[];
+  interface: string;
 }
 
 export interface CallOperation {
